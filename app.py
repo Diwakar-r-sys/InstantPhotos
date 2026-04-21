@@ -26,7 +26,7 @@ def index():
     return render_template("index.html")
 
 
-def process_single_image(input_image_bytes):
+def process_single_image(input_image_bytes, bg_color=(255, 255, 255)):
     """Remove background, enhance, and return a ready-to-paste passport PIL image."""
     # Step 1: Background removal
     response = requests.post(
@@ -52,7 +52,7 @@ def process_single_image(input_image_bytes):
     img = Image.open(bg_removed)
 
     if img.mode in ("RGBA", "LA"):
-        background = Image.new("RGB", img.size, (255, 255, 255))
+        background = Image.new("RGB", img.size, bg_color)
         background.paste(img, mask=img.split()[-1])
         processed_img = background
     else:
@@ -83,7 +83,7 @@ def process_single_image(input_image_bytes):
     img = Image.open(BytesIO(enhanced_img_data))
 
     if img.mode in ("RGBA", "LA"):
-        background = Image.new("RGB", img.size, (255, 255, 255))
+        background = Image.new("RGB", img.size, bg_color)
         background.paste(img, mask=img.split()[-1])
         passport_img = background
     else:
@@ -98,6 +98,11 @@ def process():
 
     # Layout settings
     passport_width = int(request.form.get("width", 390))
+    bg_color_hex = request.form.get("bgColor", "#ffffff").lstrip('#')
+    try:
+        bg_color = tuple(int(bg_color_hex[i:i+2], 16) for i in (0, 2, 4))
+    except ValueError:
+        bg_color = (255, 255, 255)
     passport_height = int(request.form.get("height", 480))
     border = int(request.form.get("border", 2))
     spacing = int(request.form.get("spacing", 10))
@@ -135,7 +140,7 @@ def process():
     for idx, (img_bytes, copies) in enumerate(images_data):
         print(f"DEBUG: Processing image {idx + 1} with {copies} copies")
         try:
-            img = process_single_image(img_bytes)
+            img = process_single_image(img_bytes, bg_color)
             img = img.resize((passport_width, passport_height), Image.LANCZOS)
             img = ImageOps.expand(img, border=border, fill="black")
             passport_images.append((img, copies))
